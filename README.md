@@ -15,6 +15,16 @@ This Docker image is based on the official CloudNativePG PostgreSQL image and in
 
 This image includes **all 60 out of 60** extensions from the Nhost PostgreSQL stack - **100% compatibility**!
 
+### Extension Sources
+
+- **47 extensions** are bundled with the base CloudNativePG PostgreSQL 17 image
+- **13 extensions** are added via package repositories:
+  - 6 from PostGIS
+  - 3 from Pigsty (pg_jsonschema, pgmq, and dependencies)
+  - 1 from ParadeDB (pg_search)
+  - 1 from TimescaleDB
+  - 2 compiled from source (pg_hashids, pg_ivm)
+
 ### ✅ All Nhost Extensions Included (60)
 
 ### Geospatial Extensions
@@ -35,14 +45,14 @@ This image includes **all 60 out of 60** extensions from the Nhost PostgreSQL st
 - **unaccent** - Text search dictionary that removes accents
 
 ### Data Types
-- **hstore** - Key-value pair storage
-- **ltree** - Hierarchical tree structures
-- **citext** - Case-insensitive text
-- **cube** - Multidimensional cubes
-- **seg** - Line segments or floating-point intervals
-- **isn** - International product numbering standards
-- **uuid-ossp** - UUID generation
-- **vector** 0.8.0 - Vector embeddings for AI/ML
+- **hstore** 1.8 - Key-value pair storage
+- **ltree** 1.3 - Hierarchical tree structures
+- **citext** 1.6 - Case-insensitive text
+- **cube** 1.5 - Multidimensional cubes
+- **seg** 1.4 - Line segments or floating-point intervals
+- **isn** 1.2 - International product numbering standards
+- **uuid-ossp** 1.1 - UUID generation
+- **vector** 0.8.0 - Vector embeddings for AI/ML (bundled in base image)
 
 ### Job Scheduling
 - **pg_cron** 1.6 - PostgreSQL job scheduler

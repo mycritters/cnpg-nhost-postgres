@@ -29,8 +29,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install other available PostgreSQL extensions from Debian repos
+# Note: pgvector is already included in the base CNPG image
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    postgresql-${PG_MAJOR}-pgvector \
     postgresql-${PG_MAJOR}-cron \
     postgresql-${PG_MAJOR}-http \
     postgresql-${PG_MAJOR}-hypopg \
