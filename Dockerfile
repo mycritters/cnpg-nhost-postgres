@@ -7,19 +7,13 @@ FROM ghcr.io/cloudnative-pg/postgresql:${PG_MAJOR}-bookworm
 
 USER root
 
-# Install build dependencies and PostgreSQL development packages
+# Install build dependencies for compiling pg_hashids and pg_ivm from source
+# Note: Only core build tools needed (curl kept for repository management)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    ca-certificates \
     curl \
     git \
     postgresql-server-dev-${PG_MAJOR} \
-    libpq-dev \
-    libssl-dev \
-    libkrb5-dev \
-    libcurl4-openssl-dev \
-    pkg-config \
-    cmake \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PostGIS and related extensions
@@ -47,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo "deb https://packagecloud.io/timescale/timescaledb/debian/ $(lsb_release -c -s) main" | tee /etc/apt/sources.list.d/timescaledb.list \
     && wget --quiet -O - https://packagecloud.io/timescale/timescaledb/gpgkey | gpg --dearmor -o /etc/apt/trusted.gpg.d/timescaledb.gpg \
     && apt-get update \
-    && apt-get install -y timescaledb-2-postgresql-${PG_MAJOR} \
+    && apt-get install -y --no-install-recommends timescaledb-2-postgresql-${PG_MAJOR} \
     && rm -rf /var/lib/apt/lists/*
 
 # Install pg_hashids from source
@@ -67,9 +61,14 @@ RUN git clone https://github.com/sraoss/pg_ivm.git /tmp/pg_ivm \
     && rm -rf /tmp/pg_ivm
 
 # Add Pigsty repository for pg_jsonschema and pgmq
-RUN curl -fsSL https://repo.pigsty.io/key | gpg --dearmor -o /etc/apt/keyrings/pigsty.gpg \
+# Temporarily install gnupg and lsb-release for repository setup
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gnupg \
+    lsb-release \
+    && curl -fsSL https://repo.pigsty.io/key | gpg --dearmor -o /etc/apt/keyrings/pigsty.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/pigsty.gpg] https://repo.pigsty.io/apt/infra generic main" > /etc/apt/sources.list.d/pigsty-io.list \
-    && echo "deb [signed-by=/etc/apt/keyrings/pigsty.gpg] https://repo.pigsty.io/apt/pgsql/$(lsb_release -cs) $(lsb_release -cs) main" >> /etc/apt/sources.list.d/pigsty-io.list
+    && echo "deb [signed-by=/etc/apt/keyrings/pigsty.gpg] https://repo.pigsty.io/apt/pgsql/$(lsb_release -cs) $(lsb_release -cs) main" >> /etc/apt/sources.list.d/pigsty-io.list \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Rust-based extensions using pre-built packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -93,7 +92,8 @@ RUN apt-get purge -y --auto-remove \
     build-essential \
     git \
     postgresql-server-dev-${PG_MAJOR} \
-    cmake \
+    gnupg \
+    lsb-release \
     wget
 
 USER postgres
