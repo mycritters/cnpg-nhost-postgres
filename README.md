@@ -13,9 +13,9 @@ This Docker image is based on the official CloudNativePG PostgreSQL image and in
 
 ## Extension Compatibility with Nhost
 
-This image includes **57 out of 60** extensions from the Nhost PostgreSQL stack.
+This image includes **all 60 out of 60** extensions from the Nhost PostgreSQL stack - **100% compatibility**!
 
-### ✅ Included Extensions (57)
+### ✅ All Nhost Extensions Included (60)
 
 ### Geospatial Extensions
 - **PostGIS** 3.5.3 - Geometry and geography spatial types
@@ -74,13 +74,13 @@ This image includes **57 out of 60** extensions from the Nhost PostgreSQL stack.
 - **pgrowlocks** - Row-level locking information
 - **pgstattuple** - Tuple-level statistics
 
-### ❌ Excluded Extensions (3)
+### Rust-Based Extensions (3)
 
-These extensions require Rust and the pgrx framework, which significantly increases build time (20-30 minutes) and image size (+500MB-1GB). They can be added if needed - see "Adding Rust-Based Extensions" section below.
+These extensions are built with Rust/pgrx but are **now included** using pre-built packages to avoid long build times:
 
-- **pg_jsonschema** 0.3.3 - JSON schema validation (requires Rust/pgrx)
-- **pg_search** (ParadeDB) 0.17.2 - Full-text search using BM25 (requires Rust/pgrx)
-- **pgmq** 1.6.1 - Lightweight message queue like AWS SQS (requires Rust/pgrx)
+- **pg_jsonschema** 0.3.3 - JSON schema validation (from Pigsty repository)
+- **pg_search** (ParadeDB) 0.18.11 - Full-text search using BM25 (from ParadeDB GitHub releases)
+- **pgmq** 1.6.1 - Lightweight message queue like AWS SQS (from Pigsty repository)
 
 ### Standard Contrib Extensions (24)
 - **amcheck** 1.4 - Functions for verifying relation integrity
@@ -330,48 +330,31 @@ SELECT * FROM pg_available_extensions ORDER BY name;
 SELECT * FROM pg_extension;
 ```
 
-## Adding Rust-Based Extensions
+## How We Achieved 100% Compatibility
 
-To add the 3 excluded Rust-based extensions (`pg_jsonschema`, `pg_search`, `pgmq`), add this to the Dockerfile before the cleanup step:
+The Rust-based extensions (pg_jsonschema, pg_search, pgmq) are typically challenging to include because they require:
+- Rust toolchain (~500MB)
+- pgrx framework
+- Long compilation times (20-30 minutes)
 
-```dockerfile
-# Install Rust toolchain
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
+**Our Solution**: We use pre-built packages instead of building from source:
+- **pg_jsonschema & pgmq**: Installed from the [Pigsty](https://pigsty.io) APT repository
+- **pg_search**: Downloaded from [ParadeDB GitHub releases](https://github.com/paradedb/paradedb/releases)
 
-# Install pgrx
-RUN cargo install --locked cargo-pgrx
-RUN cargo pgrx init --pg17 /usr/bin/pg_config
-
-# Install pg_jsonschema
-RUN git clone https://github.com/supabase/pg_jsonschema.git /tmp/pg_jsonschema \
-    && cd /tmp/pg_jsonschema \
-    && cargo pgrx install --release \
-    && cd / && rm -rf /tmp/pg_jsonschema
-
-# Install pg_search (ParadeDB)
-RUN git clone https://github.com/paradedb/paradedb.git /tmp/paradedb \
-    && cd /tmp/paradedb/pg_search \
-    && cargo pgrx install --release \
-    && cd / && rm -rf /tmp/paradedb
-
-# Install pgmq
-RUN git clone https://github.com/tembo-io/pgmq.git /tmp/pgmq \
-    && cd /tmp/pgmq \
-    && cargo pgrx install --release \
-    && cd / && rm -rf /tmp/pgmq
-```
-
-**Note**: This will increase build time from ~5 minutes to 25-35 minutes and add ~500MB-1GB to the image size.
+This approach provides:
+- ✅ Fast builds (~5-10 minutes instead of 30+ minutes)
+- ✅ Small image size (no Rust toolchain needed)
+- ✅ Reliable, tested packages
+- ✅ Easy version updates
 
 ## Differences from Nhost
 
-This image provides **57 out of 60** extensions from Nhost's PostgreSQL image:
-- Uses CloudNativePG as the operator instead of custom Nhost management
-- Does not include Nhost-specific initialization scripts
-- Follows CloudNativePG backup and recovery patterns
-- Uses standard PostgreSQL configuration patterns
-- **Excludes 3 Rust-based extensions** by default (can be added manually)
+This image provides **all 60 extensions** from Nhost's PostgreSQL image with:
+- CloudNativePG as the operator instead of custom Nhost management
+- CloudNativePG backup and recovery patterns
+- Standard PostgreSQL configuration
+- No Nhost-specific initialization scripts
+- **100% extension compatibility**
 
 ## License
 

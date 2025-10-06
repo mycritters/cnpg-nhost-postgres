@@ -66,10 +66,24 @@ RUN git clone https://github.com/sraoss/pg_ivm.git /tmp/pg_ivm \
     && cd / \
     && rm -rf /tmp/pg_ivm
 
-# Note: pg_jsonschema, pg_search (ParadeDB), and pgmq require Rust/pgrx and are complex to build.
-# They are available in Nhost's image but require significant build tooling.
-# For now, these extensions are documented but not installed.
-# Users can install them separately or use pre-built binaries if needed.
+# Add Pigsty repository for pg_jsonschema and pgmq
+RUN curl -fsSL https://repo.pigsty.io/key | gpg --dearmor -o /etc/apt/keyrings/pigsty.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/pigsty.gpg] https://repo.pigsty.io/apt/infra generic main" > /etc/apt/sources.list.d/pigsty-io.list \
+    && echo "deb [signed-by=/etc/apt/keyrings/pigsty.gpg] https://repo.pigsty.io/apt/pgsql/$(lsb_release -cs) $(lsb_release -cs) main" >> /etc/apt/sources.list.d/pigsty-io.list
+
+# Install Rust-based extensions using pre-built packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-${PG_MAJOR}-pg-jsonschema \
+    postgresql-${PG_MAJOR}-pgmq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install ParadeDB pg_search from GitHub releases
+ARG PARADEDB_VERSION=0.18.11
+RUN curl -L "https://github.com/paradedb/paradedb/releases/download/v${PARADEDB_VERSION}/postgresql-${PG_MAJOR}-pg-search_${PARADEDB_VERSION}-1PARADEDB-bookworm_amd64.deb" -o /tmp/pg_search.deb \
+    && apt-get update \
+    && apt-get install -y /tmp/pg_search.deb \
+    && rm -f /tmp/pg_search.deb \
+    && rm -rf /var/lib/apt/lists/*
 
 # Configure shared_preload_libraries to include all necessary extensions
 RUN echo "shared_preload_libraries = 'pg_stat_statements,timescaledb,pg_cron'" >> /usr/share/postgresql/postgresql.conf.sample
@@ -89,7 +103,7 @@ LABEL maintainer="CloudNativePG with Nhost Extensions" \
       org.opencontainers.image.description="PostgreSQL ${PG_MAJOR} with all Nhost extensions for CloudNativePG" \
       org.opencontainers.image.source="https://github.com/mycritters/cnpg-nhost-postgres"
 
-# Extensions included:
+# Extensions included (60/60 from Nhost - 100% compatibility):
 # - PostGIS (postgis, postgis_raster, postgis_topology, postgis_tiger_geocoder, address_standardizer, address_standardizer_data_us)
 # - TimescaleDB
 # - pg_vector
@@ -97,11 +111,11 @@ LABEL maintainer="CloudNativePG with Nhost Extensions" \
 # - pg_http
 # - pg_hashids
 # - pg_ivm
+# - pg_jsonschema (via Pigsty repository)
+# - pg_search / ParadeDB (via GitHub releases)
+# - pgmq (via Pigsty repository)
 # - pg_repack
 # - pg_squeeze
 # - hypopg
 # - ip4r
-# - And all standard contrib extensions (pgcrypto, hstore, uuid-ossp, etc.)
-#
-# Note: pg_jsonschema, pg_search (ParadeDB), and pgmq require Rust/pgrx build tooling
-# and are not included in this image to keep build complexity and size manageable.
+# - And all 24 standard contrib extensions (pgcrypto, hstore, uuid-ossp, etc.)
