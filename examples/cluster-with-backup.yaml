@@ -1,0 +1,126 @@
+---
+# S3 Bucket for backups (using Ceph Object Storage)
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: cnpg-example-db
+  namespace: default
+  labels:
+    hahomelabs.com/replication: "true"
+    hahomelabs.com/versioning: "false"
+spec:
+  bucketName: cnpg-example-db
+  storageClassName: ceph-bucket-retain
+  additionalConfig:
+    bucketLifecycle: |
+      {
+        "Rules": [
+          {
+            "ID": "Postgres Backups",
+            "Filter": {
+              "Prefix": ""
+            },
+            "Status": "Enabled",
+            "Transitions": [
+              {
+                "Days": 7,
+                "StorageClass": "STANDARD_IA"
+              }
+            ],
+            "AbortIncompleteMultipartUpload": {
+              "DaysAfterInitiation": 1
+            }
+          }
+        ]
+      }
+    bucketOwner: "cnpg"
+
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: example-db
+  namespace: default
+spec:
+  imageCatalogRef:
+    name: cnpg-nhost
+    major: 17
+    kind: ClusterImageCatalog
+    apiGroup: postgresql.cnpg.io
+
+  instances: 3
+
+  postgresql:
+    pg_hba:
+      - hostnossl all all all md5
+    shared_preload_libraries:
+      - pg_stat_statements
+      - timescaledb
+      - pg_cron
+
+  bootstrap:
+    initdb:
+      database: myapp
+      owner: myapp
+      postInitSQL:
+        - CREATE EXTENSION IF NOT EXISTS postgis;
+        - CREATE EXTENSION IF NOT EXISTS timescaledb;
+        - CREATE EXTENSION IF NOT EXISTS vector;
+        - CREATE EXTENSION IF NOT EXISTS pg_cron;
+        - CREATE EXTENSION IF NOT EXISTS pgmq;
+        - CREATE EXTENSION IF NOT EXISTS http;
+
+  storage:
+    size: 10Gi
+    storageClass: ceph-block
+    resizeInUseVolumes: true
+
+  backup:
+    retentionPolicy: "30d"
+    barmanObjectStore:
+      s3Credentials:
+        accessKeyId:
+          name: cnpg-example-db
+          key: AWS_ACCESS_KEY_ID
+        secretAccessKey:
+          name: cnpg-example-db
+          key: AWS_SECRET_ACCESS_KEY
+      destinationPath: s3://cnpg-example-db
+      endpointURL: https://s3.us-west-1.hahomelabs.com
+      serverName: example-db-1
+      wal:
+        compression: gzip
+        maxParallel: 8
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: nodeclass
+            operator: In
+            values:
+            - general
+
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: DoNotSchedule
+
+  monitoring:
+    enablePodMonitor: true
+
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: example-db-daily
+  namespace: default
+spec:
+  backupOwnerReference: self
+  cluster:
+    name: example-db
+  immediate: true
+  method: barmanObjectStore
+  schedule: "0 0 0 * * *"
+  target: prefer-standby
